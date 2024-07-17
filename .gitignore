@@ -26,3 +26,6 @@ Thumbs.db
 *.bak
 *.swp
 *.swo
+
+# Claude Engineer's commit message draft files
+commit_message.txt
