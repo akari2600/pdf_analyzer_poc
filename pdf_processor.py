@@ -1,12 +1,13 @@
 import fitz  # PyMuPDF
 import numpy as np
 
-def load_pdf(pdf_path, page_number=0):
+def load_pdf(pdf_path, page_number=0, zoom=1):
     """
     Load a specific page from a PDF file and return it as a numpy array.
     
     :param pdf_path: Path to the PDF file
     :param page_number: Page number to load (0-indexed)
+    :param zoom: number by which to multiply the matrix
     :return: Tuple of (image as numpy array, total number of pages)
     """
     doc = fitz.open(pdf_path)
@@ -16,7 +17,8 @@ def load_pdf(pdf_path, page_number=0):
         raise ValueError(f"Invalid page number. The document has {total_pages} pages.")
     
     page = doc.load_page(page_number)
-    pix = page.get_pixmap()
+    mat = fitz.Matrix(zoom, zoom)  # use zoom value 
+    pix = page.get_pixmap(matrix=mat)
     
     # Convert pixmap to numpy array
     img_array = np.frombuffer(pix.samples, dtype=np.uint8).reshape(pix.h, pix.w, pix.n)

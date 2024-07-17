@@ -35,27 +35,53 @@ def detect_layout_elements(binary_image, granularity=50):
     elements = []
     for contour in contours:
         x, y, w, h = cv2.boundingRect(contour)
-        element_type = classify_element(binary_image[y:y+h, x:x+w], w, h)
+        element_type = classify_element(binary_image[y:y+h, x:x+w], w, h, granularity)
         elements.append(LayoutElement(element_type, (x, y, w, h)))
     print(f"Detected {len(elements)} elements in {time.time() - start_time:.2f} seconds")
     return elements
 
-def classify_element(roi, width, height):
-    """Classify the type of layout element based on its characteristics."""
+def classify_element(roi, width, height, granularity):
+    """Classify the type of layout element based on its characteristics and granularity."""
     aspect_ratio = width / height
     area = width * height
     pixel_density = np.sum(roi) / (width * height * 255)
+    
+    # Adjust thresholds based on granularity
+    line_thickness_threshold = max(1, int(20 * granularity / 25))
+    min_size_threshold = max(20, int(20 * granularity / 50))
+    area_threshold = max(1000, int(1000 * granularity / 50))
+    
+    print(f"Width: {width}, Height: {height}, Aspect ratio: {aspect_ratio}, Area: {area}, Pixel density: {pixel_density}, Granularity: {granularity}, Line Thickness Threshold: {line_thickness_threshold}")
 
-    if aspect_ratio > 5 or aspect_ratio < 0.2:
-        return "line"
-    elif pixel_density > 0.5:
+    # Check for potential lines based on aspect ratio and adjusted thickness
+    if (aspect_ratio > 10 and height < line_thickness_threshold) or (aspect_ratio < 0.1 and width < line_thickness_threshold):
+        edges = cv2.Canny(roi, 50, 150)
+        edge_density = np.sum(edges) / (width * height * 255)
+        
+        print(f"edge_density: {edge_density}")
+        if edge_density < 0.2:
+            return "line"
+
+    # Detect images
+    if pixel_density > 0.5 and min(width, height) > min_size_threshold:
         return "image"
-    elif area > 1000 and pixel_density > 0.1:
-        return "text_block"
-    elif width > 100 and height > 100:
+
+    # Detect text blocks
+    if 0.05 < pixel_density < 0.5:
+        if area > area_threshold:
+            return "text_block"
+        elif width > height * 3:  # For short, wide text (e.g., headers)
+            return "text_block"
+        else:
+            return "short_text"
+
+    # Detect tables
+    table_size_threshold = max(100, int(100 * granularity / 50))
+    if 0.01 < pixel_density < 0.1 and width > table_size_threshold and height > table_size_threshold:
         return "table"
-    else:
-        return "unknown"
+
+    # Default case
+    return "unknown"
 
 def analyze_spatial_relationships(elements):
     """Analyze spatial relationships between layout elements."""
