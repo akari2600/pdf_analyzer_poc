@@ -11,7 +11,7 @@ from kivy.uix.popup import Popup
 from kivy.clock import Clock
 from kivy.uix.slider import Slider
 from kivy.uix.togglebutton import ToggleButton
-from pdf_processor import load_pdf
+from pdf_processor import load_pdf, get_total_pages
 from image_analyzer import analyze_layout, preprocess_image
 import cv2
 import numpy as np
@@ -52,6 +52,19 @@ class PDFAnalyzerGUI(BoxLayout):
         top_controls.add_widget(self.file_label)
         self.add_widget(top_controls)
 
+        # Page controls
+        page_controls = BoxLayout(size_hint_y=None, height=40)
+        self.current_page_input = TextInput(text='1', multiline=False, size_hint_x=None, width=50)
+        self.current_page_input.bind(on_text_validate=self.on_page_input)
+        self.total_pages_label = Label(text='/ 1')
+        self.page_slider = Slider(min=1, max=1, value=1, step=1)
+        self.page_slider.bind(value=self.on_page_slider)
+        page_controls.add_widget(Label(text='Page:'))
+        page_controls.add_widget(self.current_page_input)
+        page_controls.add_widget(self.total_pages_label)
+        page_controls.add_widget(self.page_slider)
+        self.add_widget(page_controls)
+
         # Image preview
         self.image_preview = Image(allow_stretch=True, keep_ratio=True, size_hint_y=0.6)
         self.add_widget(self.image_preview)
@@ -91,6 +104,8 @@ class PDFAnalyzerGUI(BoxLayout):
 
         self.current_image = None
         self.layout_data = None
+        self.pdf_path = None
+        self.total_pages = 1
 
     def show_file_chooser(self, instance):
         content = BoxLayout(orientation='vertical')
@@ -114,15 +129,43 @@ class PDFAnalyzerGUI(BoxLayout):
     def load_pdf(self, pdf_path):
         print(f"Loading PDF: {pdf_path}")
         try:
-            image = load_pdf(pdf_path)
-            self.current_image = np.array(image)
-            print(f"Image shape: {self.current_image.shape}")
+            self.pdf_path = pdf_path
+            self.total_pages = get_total_pages(pdf_path)
+            self.page_slider.max = self.total_pages
+            self.total_pages_label.text = f'/ {self.total_pages}'
             self.file_label.text = os.path.basename(pdf_path)
-            self.update_image_preview()
+            self.load_page(1)
         except Exception as e:
             print(f"Error loading PDF: {str(e)}")
             import traceback
             traceback.print_exc()
+
+    def load_page(self, page_number):
+        try:
+            self.current_image, _ = load_pdf(self.pdf_path, page_number - 1)
+            print(f"Image shape: {self.current_image.shape}")
+            self.current_page_input.text = str(page_number)
+            self.page_slider.value = page_number
+            self.update_image_preview()
+        except Exception as e:
+            print(f"Error loading page: {str(e)}")
+            import traceback
+            traceback.print_exc()
+
+    def on_page_input(self, instance):
+        try:
+            page = int(instance.text)
+            if 1 <= page <= self.total_pages:
+                self.load_page(page)
+            else:
+                instance.text = str(int(self.page_slider.value))
+        except ValueError:
+            instance.text = str(int(self.page_slider.value))
+
+    def on_page_slider(self, instance, value):
+        page = int(value)
+        if page != int(self.current_page_input.text):
+            self.load_page(page)
 
     def on_preprocess_change(self, instance, value):
         if self.current_image is not None:

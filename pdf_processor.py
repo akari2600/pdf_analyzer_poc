@@ -1,22 +1,41 @@
-from pdf2image import convert_from_path
+import fitz  # PyMuPDF
 import numpy as np
-import PyPDF2
 
-def load_pdf(file_path):
-    """Load a PDF file and return its first page as an image."""
-    print(f"Converting PDF to image: {file_path}")
-    images = convert_from_path(file_path, dpi=200, first_page=1, last_page=1)
-    if images:
-        return np.array(images[0])
-    else:
-        raise ValueError("Failed to convert PDF to image")
+def load_pdf(pdf_path, page_number=0):
+    """
+    Load a specific page from a PDF file and return it as a numpy array.
+    
+    :param pdf_path: Path to the PDF file
+    :param page_number: Page number to load (0-indexed)
+    :return: Tuple of (image as numpy array, total number of pages)
+    """
+    doc = fitz.open(pdf_path)
+    total_pages = len(doc)
+    
+    if page_number < 0 or page_number >= total_pages:
+        raise ValueError(f"Invalid page number. The document has {total_pages} pages.")
+    
+    page = doc.load_page(page_number)
+    pix = page.get_pixmap()
+    
+    # Convert pixmap to numpy array
+    img_array = np.frombuffer(pix.samples, dtype=np.uint8).reshape(pix.h, pix.w, pix.n)
+    
+    # If the image is RGBA, convert it to RGB
+    if img_array.shape[2] == 4:
+        img_array = img_array[:, :, :3]
+    
+    doc.close()
+    return img_array, total_pages
 
-def get_pdf_info(file_path):
-    """Get basic information about the PDF."""
-    with open(file_path, 'rb') as file:
-        reader = PyPDF2.PdfReader(file)
-        info = {
-            'num_pages': len(reader.pages),
-            'metadata': reader.metadata
-        }
-    return info
+def get_total_pages(pdf_path):
+    """
+    Get the total number of pages in a PDF file.
+    
+    :param pdf_path: Path to the PDF file
+    :return: Total number of pages
+    """
+    doc = fitz.open(pdf_path)
+    total_pages = len(doc)
+    doc.close()
+    return total_pages
