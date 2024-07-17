@@ -1,0 +1,28 @@
+# Python-specific ignores
+__pycache__/
+*.py[cod]
+*$py.class
+
+# Virtual environment
+venv/
+
+# Test PDFs folder, but include sample.pdf
+test_pdfs/*
+!test_pdfs/sample.pdf
+
+# OS-specific files
+.DS_Store
+Thumbs.db
+
+# IDE-specific files (optional, uncomment if needed)
+# .vscode/
+# .idea/
+
+# Logs and databases
+*.log
+*.sqlite3
+
+# Other common ignores
+*.bak
+*.swp
+*.swo
